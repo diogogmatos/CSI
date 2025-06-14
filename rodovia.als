@@ -1,177 +1,238 @@
-sig Segmento {
-    // Identificador único do segmento
-    id: one Int,
-    // Identificação da estrada a que o segmento pertence
-    estrada: one String,
-    // Delimita o começo do segmento
-    elemento: one Elemento,
-    // Regras presentes na sinalização do segmento atual
-    // e/ou herdadas do segmento pai (se existir)
-    regras: set Regulamentacao,
-    // Subsegmentos que compõem o segmento atual
-    segmentos: set Segmento,
+// Utils
+
+enum Bool { True, False }
+
+// Main Code
+
+sig Universo {
+    estradas: set Estrada,
 }
 
-sig Elemento {}
+sig Estrada {
+    id: one String, -- identificador única da estrada
+    inicio: one Segmento, -- cabeça da lista ligada de segmentos que compõe a estrada
+}
+
+sig Segmento {
+    inter: lone Intercecao, -- delimita o começo do segmento
+    regras: set Regulamentacao, -- regras do segmento atual e as herdadas do segmento anterior (se existir) ??
+    proxSegmento: lone Segmento, -- próximo segmento na lista
+    subSegmentos: lone SubSegmento -- cabeça da lista ligada de subsegmentos
+}
+
+sig SubSegmento {
+    elemento: one Sinal + Obstaculo, 
+    proxSubSegmento: lone SubSegmento
+}
+
+fact {
+    // Uma estrada deve ter um identificador único
+    all e1, e2: Estrada | e1.id = e2.id implies e1 = e2
+    // O início da estrada deve ser um segmento único
+    all e1, e2: Estrada | e1.inicio = e2.inicio implies e1 = e2
+    // O próximo segmento de um segmento não pode ser ele próprio
+    all s: Segmento | s.proxSegmento != s
+    // O próximo subsegmento de um subsegmento não pode ser ele próprio
+    all ss: SubSegmento | ss.proxSubSegmento != ss
+    // Todos os segmentos de uma estrada devem ser únicos
+    all e: Estrada | all s1, s2: e.inicio + e.inicio.*proxSegmento | s1 != s2 implies s1 not in s2.*proxSegmento
+    // Todos os subsegmentos de um segmento devem ser únicos
+    all s: Segmento, ss1, ss2: s.subSegmentos + s.subSegmentos.*proxSubSegmento | ss1 != ss2
+    // Estradas diferentes não têm segmentos em comum
+    all e1, e2: Estrada | e1 != e2 implies no e1.inicio + e1.inicio.*proxSegmento & e2.inicio + e2.inicio.*proxSegmento
+    // Segmentos não partilham subsegmentos
+    all s1, s2: Segmento | s1 != s2 implies no s1.subSegmentos + s1.subSegmentos.*proxSubSegmento & s2.subSegmentos + s2.subSegmentos.*proxSubSegmento
+    // Estradas diferentes não têm subsegmentos em comum
+    all e1, e2: Estrada | e1 != e2 implies no e1.inicio.subSegmentos + e1.inicio.subSegmentos.*proxSubSegmento & e2.inicio.subSegmentos + e2.inicio.subSegmentos.*proxSubSegmento
+}
+
+// As estradas dos cruzamentos e entroncamentos nao podem ambas ter prioridade
+fact {
+    all s1, s2: Segmento |
+    s1.inter in Cruzamento + Entroncamento and
+    s2.inter in Cruzamento + Entroncamento and
+    s1.inter.id = s2.inter.id implies
+        // Ou uma tem prioridade e a outra não
+        (s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True and
+         s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) or
+        // Ou ambas não têm prioridade
+        (s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = False and
+         s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) or
+         // Ou uma tem prioridade e a outra não
+        (s1.inter in Cruzamento and s1.inter.(Cruzamento <: comPrioridade) = True and
+         s2.inter in Cruzamento and s2.inter.(Cruzamento <: comPrioridade) = False) or
+         // Ou ambas não têm prioridade
+        (s1.inter in Cruzamento and s1.inter.(Cruzamento <: comPrioridade) = False and
+         s2.inter in Cruzamento and s2.inter.(Cruzamento <: comPrioridade) = False)
+}
+
+// estrada1: S1 -> S2 -> S3 -> ... -> Sn
+// estrada2: S1 -> S2 -> S3 -> ... -> Sn
+
+// Rotunda -------------------------------------------------------------------------------------- Cruzamento
+
+// Rotunda ---- Sinal de Lomba --- Limite Velocidade --- Lomba ---- Rotunda
+
+// Rotunda -- Velocidade Maxima -- Aviso Rotunda -- Rotunda ------ Fim Velocidade Maxima ------- Cruzamento
+
+abstract sig Elemento {}
 
 // Interseções
 
-sig Intercecao extends Elemento {}
+abstract sig Intercecao extends Elemento {
+    id: one String -- identificador único da interseção
+}
 
 sig Rotunda extends Intercecao {}
-
-sig Entroncamento extends Intercecao {}
-
-sig Cruzamento extends Intercecao {}
+sig Entroncamento extends Intercecao {
+    comPrioridade: one Bool,
+}
+sig Cruzamento extends Intercecao {
+    comPrioridade: one Bool,
+}
 
 // Obstáculos
 
-sig Obstaculo extends Elemento {}
+abstract sig Obstaculo extends Elemento {}
 
 sig Passadeira extends Obstaculo {}
-
 sig Lomba extends Obstaculo {}
-
 sig Depressao extends Obstaculo {}
-
 sig Tunel extends Obstaculo {}
 
 // Sinais
 
-sig Sinal extends Elemento {
-    id: one String,
-}
+abstract sig Sinal extends Elemento {}
 
 // Sinais de Perigo
 
-sig Perigo extends Sinal {
-    // Sinalizam um perigo que irá ocorrer no segmento
-    sinaliza: one Obstaculo,
-}
+abstract sig Perigo extends Sinal {}
 
-pred lomba {
-    all s: Perigo | s.id = "A2a" implies s.sinaliza in Lomba
-}
-
-pred depressao {
-    all s: Perigo | s.id = "A2b" implies s.sinaliza in Depressao
-}
-
-pred lombaOuDepressao {
-    all s: Perigo | s.id = "A2c" implies s.sinaliza in Lomba or s.sinaliza in Depressao
-}
-
-pred p_passadeira {
-    all s: Perigo | s.id = "A16a" implies s.sinaliza in Passadeira
-}
-
-pred tunel {
-    all s: Perigo | s.id = "A20" implies s.sinaliza in Tunel
-}
+sig PerigoLomba extends Perigo {}
+sig PerigoDepressao extends Perigo {}
+sig PerigoLombaOuDepressao extends Perigo {}
+sig PerigoPassadeira extends Perigo {}
+sig PerigoTunel extends Perigo {}
 
 // Sinais de Regulamentação
 
-sig Regulamentacao extends Sinal {}
+abstract sig Regulamentacao extends Sinal {}
 
 // -- Sinais de Cedência de Passagem
 
-sig CedenciaPassagem extends Regulamentacao {
-    // Sinalizam uma regra de cedência a ser aplicada numa interseção
-    sinaliza: one Intercecao,
-}
+abstract sig Cedencia extends Regulamentacao {}
 
-pred stop {
-    // "Paragem obrigatória emcruzamentos ou entroncamentos"
-    all s: CedenciaPassagem | s.id = "B2" implies s.sinaliza in Cruzamento or s.sinaliza in Entroncamento
-}
-
-pred aproximacaoRotunda {
-    // "Aproximação de rotunda"
-    all s: CedenciaPassagem | s.id = "B7" implies s.sinaliza in Rotunda
-}
-
-pred cruzamento {
-    // "Cruzamento com via sem prioridade"
-    all s: CedenciaPassagem | s.id = "B8" implies s.sinaliza in Cruzamento
-}
-
-pred entroncamento {
-    // "Entroncamento com via sem prioridade"
-    all s: CedenciaPassagem | s.id = "B9a" or s.id = "B9b" or s.id = "B9c" or s.id = "B9d" implies s.sinaliza in Entroncamento
-}
+sig CedenciaPassagem extends Cedencia {}
+sig CedenciaStop extends Cedencia {}
+sig CedenciaRotunda extends Cedencia {}
+sig CedenciaCruzamento extends Cedencia {}
+sig CedenciaEntroncamento extends Cedencia {}
 
 // -- Sinais de Proibição
 
-sig Proibicao extends Regulamentacao {}
+abstract sig Proibicao extends Regulamentacao {}
 
-pred dependenciaDeSinaisProibicao {
-    // Um sinal de proibição imposto a veículos em marcha deve ser sucedido por um sinal de fim dessa proibição
+sig ProibicaoVelocidadeMaxima extends Proibicao {}
+sig ProibicaoUltrapassagem extends Proibicao {}
+sig ProibicaoUltrapassagemPesados extends Proibicao {}
+sig ProibicaoUltrapassagemMotociclos extends Proibicao {}
 
-    // Velocidade máxima
-    all s: Segmento | s.elemento in Proibicao and s.elemento.id = "C13"
-    implies (some ss: s.segmentos | ss.elemento in Proibicao and (ss.elemento.id = "C20b" or ss.elemento.id = "C20a"))
-
-    // Proibição de ultrapassagem
-    all s: Segmento | s.elemento in Proibicao and s.elemento.id = "C14a"
-    implies (some ss: s.segmentos | ss.elemento in Proibicao and (ss.elemento.id = "C20c" or ss.elemento.id = "C20a"))
-
-    // Proibição de ultrapassagem para veículos pesados
-    all s: Segmento | s.elemento in Proibicao and s.elemento.id = "C14b"
-    implies (some ss: s.segmentos | ss.elemento in Proibicao and (ss.elemento.id = "C20d" or ss.elemento.id = "C20a"))
-
-    // Proibição de ultrapassagem para motociclos e ciclomotores
-    all s: Segmento | s.elemento in Proibicao and s.elemento.id = "C14c"
-    implies (some ss: s.segmentos | ss.elemento in Proibicao and (ss.elemento.id = "C20e" or ss.elemento.id = "C20a"))
-}
+sig ProibicaoFim extends Proibicao {}
+sig ProibicaoFimVelocidadeMaxima extends Proibicao {}
+sig ProibicaoFimUltrapassagem extends Proibicao {}
+sig ProibicaoFimUltrapassagemPesados extends Proibicao {}
+sig ProibicaoFimUltrapassagemMotociclos extends Proibicao {}
 
 // -- Sinais de Obrigação
 
-sig Obrigacao extends Regulamentacao {
-    sinaliza: lone Elemento,
-}
+abstract sig Obrigacao extends Regulamentacao {}
 
-pred rotunda {
-    all s: Obrigacao | s.id = "D4" implies (some ss: s.sinaliza | ss in Rotunda)
-}
+sig ObrigacaoRotunda extends Obrigacao {}
 
 // -- Sinais de Informação
 
-sig Informacao extends Sinal {
-    sinaliza: one Elemento,
-}
+abstract sig Informacao extends Sinal {}
 
-pred i_passadeira {
-    all s: Informacao | s.id = "H7" implies s.sinaliza in Passadeira
-}
+sig InformacaoPassadeira extends Informacao {}
 
 // Regras de Trânsito
 
-pred inv1 {
+// s.proxSegmento -- próximo
+// s.*proxSegmento -- todos os próximos
+// *(~proxSegmento)[s] -- todos os anteriores
+// ~proxSegmento[s] -- imediatamente anterior
+
+// -- Regras Sinais de Perigo
+
+pred regraPerigo[sinal: set Perigo, obstaculo: set Obstaculo] {
     // Antes de um obstaculo deve existir uma sinalização de perigo
-    all o: Obstaculo | some p: Perigo | p.sinaliza = o
+    all e: Estrada, s: e.inicio + e.inicio.*proxSegmento, ss: s.subSegmentos + s.subSegmentos.*proxSubSegmento |
+        ss.elemento in obstaculo implies
+            some prev: *(~proxSubSegmento)[ss] | prev.elemento in sinal
 }
 
-pred inv2 {
-    // Antes de uma lomba deve existir uma sinalização de perigo
-    all l: Lomba | some p: Perigo | p.sinaliza = l and (p.id = "A2a" or p.id = "A2c")
+fact {
+    regraPerigo[PerigoLomba + PerigoLombaOuDepressao, Lomba] and
+    regraPerigo[PerigoDepressao + PerigoLombaOuDepressao, Depressao] and
+    regraPerigo[PerigoPassadeira, Passadeira] and
+    regraPerigo[PerigoTunel, Tunel]
 }
 
-pred inv3 {
-    // Antes de uma depressão deve existir uma sinalização de perigo
-    all d: Depressao | some p: Perigo | p.sinaliza = d and (p.id = "A2b" or p.id = "A2c")
+// Regras Sinais de Cedência
+
+pred regraCruzamentoEntroncamento[sinal: set Cedencia, intersecao: set Intercecao] {
+    // Antes de uma interseção com uma via sem prioridade deve existir uma sinalização de cedência
+    all e: Estrada, s: e.inicio + e.inicio.*proxSegmento |
+        (some s.inter and s.inter in intersecao and 
+            (s.inter in Rotunda or
+             (s.inter in Cruzamento and s.inter.(Cruzamento <: comPrioridade) = True) or 
+             (s.inter in Entroncamento and s.inter.(Entroncamento <: comPrioridade) = True)))
+        implies
+            some prev: (~proxSegmento[s]).subSegmentos | prev.elemento in sinal
 }
 
-pred inv4 {
-    // Antes de uma passadeira deve existir uma sinalização de perigo
-    all pa: Passadeira | some p: Perigo | p.sinaliza = pa and p.id = "A16a"
+fact {
+    regraCruzamentoEntroncamento[CedenciaRotunda, Rotunda] and
+    regraCruzamentoEntroncamento[CedenciaCruzamento, Cruzamento] and
+    regraCruzamentoEntroncamento[CedenciaEntroncamento, Entroncamento]
 }
 
-pred inv5 {
-    // Antes de uma interseção deve existir uma sinalização de cedência de passagem, de algum tipo
-    all i: Intercecao | some s: CedenciaPassagem | s.sinaliza = i
+fact regraEntroncamentoSemPrioridade {
+    all e1, e2: Estrada, s1: e1.inicio + e1.inicio.*proxSegmento, s2: e2.inicio + e2.inicio.*proxSegmento |
+        ((some s1.inter and s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True) and
+        (some s2.inter and s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) and
+        (s1.inter.id = s2.inter.id))
+        implies some prev: (~proxSegmento[s2]).subSegmentos | prev.elemento in CedenciaPassagem + CedenciaStop
 }
 
-pred inv6 {
-    // Antes de uma rotunda deve existir uma sinalização de aproximação de rotunda e uma sinalização de cedência de passagem
-    all r: Rotunda | some s1, s2: CedenciaPassagem | s1.id = "B7" and s2.id = "B1" and s1.sinaliza = r and s2.sinaliza = r
+fact regraCruzamentoSemPrioridade {
+    all e1, e2: Estrada, s1: e1.inicio + e1.inicio.*proxSegmento, s2: e2.inicio + e2.inicio.*proxSegmento |
+        (((some s1.inter and s1.inter in Cruzamento and s1.inter.(Cruzamento <: comPrioridade) = True)) and
+        (some s2.inter and s2.inter in Cruzamento and s2.inter.(Cruzamento <: comPrioridade) = False) and
+        (s1.inter.id = s2.inter.id))
+        implies some prev: (~proxSegmento[s2]).subSegmentos | prev.elemento in CedenciaPassagem + CedenciaStop
 }
+
+fact EstradaStructure {
+    all e: Estrada |
+        some e.inicio // Every Estrada has an initial Segmento
+}
+
+pred example1 {
+    one e: Estrada |
+        e.id = "N205" and
+        e.inicio.inter = Cruzamento and
+        e.inicio.subSegmentos.elemento = PerigoLomba and
+        e.inicio.subSegmentos.proxSubSegmento.elemento = Lomba and
+        e.inicio.proxSegmento.inter = Rotunda
+}
+
+run example1 for 1 Universo, 5 Elemento, 1 Estrada, 3 Segmento, 3 SubSegmento, 2 Cruzamento, 2 Rotunda, 2 Lomba, 2 PerigoLomba, exactly 2 String
+
+// pred sampleInstance {
+//     // Create one Estrada with a series of connected segments and subsegments
+//     one e: Estrada |
+//         e.inicio.elemento = Lomba and
+//         e.inicio.subSegmentos.elemento = PerigoLomba and
+//         e.inicio.subSegmentos.proxSubSegmento.elemento = Depressao
+// }
