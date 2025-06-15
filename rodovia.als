@@ -48,6 +48,12 @@ pred regrasBase {
     all e1, e2: Estrada | e1 != e2 implies no e1.inicio.subSegmentos.*proxSubSegmento & e2.inicio.subSegmentos.*proxSubSegmento
     // Uma estrada termina numa rotunda ou segmento sem saída
     all s: Segmento | s.inter in SemSaida + Rotunda implies (s.proxSegmento = none and s.subSegmentos = none)
+    
+    // Instancias de Intercecao nao sao partilhadas por segmentos
+    all i : Intercecao, s1, s2: Segmento | s1.inter = i and s2.inter = i implies s1 = s2 
+    // Instancias de Sinal ou Obstaculo nao sao partilhadas por subsegmentos
+    all so: (Sinal + Obstaculo), ss1, ss2: SubSegmento | ss1.elemento = so and ss2.elemento = so implies ss1 = ss2
+
     // Num entroncamento com prioridades iguais, uma das estradas deve terminar
     // all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
     //     s1.inter in Entroncamento and s2.inter in Entroncamento and
@@ -55,12 +61,18 @@ pred regrasBase {
     //     implies (((s1.proxSegmento = none and s1.subSegmentos = none) or (s2.proxSegmento = none and s2.subSegmentos = none))
     //     and not (s1.proxSegmento = none and s1.subSegmentos = none and s2.proxSegmento = none and s2.subSegmentos = none))
     // Num entroncamento com prioridades opostas, a estrada sem prioridade deve terminar
-    all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
-        s1.inter in Entroncamento and s2.inter in Entroncamento and
-        s1.inter.id = s2.inter.id and s1.inter.(Entroncamento <: comPrioridade) = True and s2.inter.(Entroncamento <: comPrioridade) = False
-        implies s2.proxSegmento = none and s2.subSegmentos = none
+    // all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
+    //     s1.inter in Entroncamento and s2.inter in Entroncamento and
+    //     s1.inter.id = s2.inter.id and s1.inter.(Entroncamento <: comPrioridade) = True and s2.inter.(Entroncamento <: comPrioridade) = False
+    //     implies s2.proxSegmento = none and s2.subSegmentos = none
     // Entroncamentos devem ser partilhados por exatos 2 segmentos
-    all s: Segmento | s.inter in Entroncamento implies (some os: Segmento | os != s and os.inter.id = s.inter.id)
+    all e: Entroncamento |
+        some e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
+        s1.inter in Entroncamento and s2.inter in Entroncamento and
+        s1.inter.id = s2.inter.id and
+        s1.inter.id = e.id and
+        e1 != e2 
+    // all s: Segmento | s.inter in Entroncamento implies (some os: Segmento | os != s and os.inter.id = s.inter.id)
     // all i: Entroncamento | one s1, s2: Segmento |
     //     s1 != s2 and s1.inter.id = i.id and s2.inter.id = i.id
     // Rotundas devem ser partilhadas por pelo menos dois segmentos
@@ -171,7 +183,7 @@ pred regraPrioridade {
     all s1, s2: Segmento |
     s1.inter in Cruzamento + Entroncamento and
     s2.inter in Cruzamento + Entroncamento and
-    s1.inter.id = s2.inter.id implies
+    s1.inter.id = s2.inter.id and s1 != s2 implies
         // Ou uma tem prioridade e a outra não
         (s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True and
          s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) or
@@ -217,7 +229,8 @@ pred regraCruzamentoEntroncamento[sinal: set Cedencia, intersecao: set Interceca
 
 pred regraEntroncamentoSemPrioridade {
     all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
-        (~proxSegmento[s2] != none and (some s1.inter and s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True) and
+        (~proxSegmento[s2] != none and 
+        (some s1.inter and s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True) and
         (some s2.inter and s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) and
         (s1.inter.id = s2.inter.id))
         implies one prev: (~proxSegmento[s2]).subSegmentos | prev.elemento in CedenciaPassagem + CedenciaStop
@@ -225,7 +238,8 @@ pred regraEntroncamentoSemPrioridade {
 
 pred regraCruzamentoSemPrioridade {
     all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
-        (~proxSegmento[s2] != none and ((some s1.inter and s1.inter in Cruzamento and s1.inter.(Cruzamento <: comPrioridade) = True)) and
+        (~proxSegmento[s2] != none and (
+        (some s1.inter and s1.inter in Cruzamento and s1.inter.(Cruzamento <: comPrioridade) = True)) and
         (some s2.inter and s2.inter in Cruzamento and s2.inter.(Cruzamento <: comPrioridade) = False) and
         (s1.inter.id = s2.inter.id))
         implies some prev: (~proxSegmento[s2]).subSegmentos | prev.elemento in CedenciaPassagem + CedenciaStop
@@ -252,7 +266,7 @@ run {
     // some CedenciaStop
     some Entroncamento
     regrasBase
-    // regraPrioridade and - a falhar
+    regraPrioridade
     regrasPerigo
     regrasCedencia
 } for 5 Estrada, 5 Segmento, 5 SubSegmento, 5 Elemento
