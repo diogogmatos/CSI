@@ -90,11 +90,9 @@ pred regrasBase {
 
 // Rotunda -- Velocidade Maxima -- Aviso Rotunda -- Rotunda ------ Fim Velocidade Maxima ------- Cruzamento
 
-abstract sig Elemento {}
-
 // Interseções
 
-abstract sig Intercecao extends Elemento {
+abstract sig Intercecao {
     id: one String -- identificador único da interseção
 }
 
@@ -109,7 +107,7 @@ sig SemSaida extends Intercecao {}
 
 // Obstáculos
 
-abstract sig Obstaculo extends Elemento {}
+abstract sig Obstaculo {}
 
 sig Passadeira extends Obstaculo {}
 sig Lomba extends Obstaculo {}
@@ -118,7 +116,7 @@ sig Tunel extends Obstaculo {}
 
 // Sinais
 
-abstract sig Sinal extends Elemento {}
+abstract sig Sinal {}
 
 // Sinais de Perigo
 
@@ -219,7 +217,7 @@ pred regrasPerigo {
 pred regraCruzamentoEntroncamento[sinal: set Cedencia, intersecao: set Intercecao] {
     // Antes de uma interseção com uma via sem prioridade deve existir uma sinalização de cedência
     all e: Estrada, s: e.inicio.*proxSegmento |
-        (~proxSegmento[s] != none and some s.inter and s.inter in intersecao and 
+        (~proxSegmento[s] != none and s.inter != none and s.inter in intersecao and 
             (s.inter in Rotunda or
              (s.inter in Cruzamento and s.inter.(Cruzamento <: comPrioridade) = True) or 
              (s.inter in Entroncamento and s.inter.(Entroncamento <: comPrioridade) = True)))
@@ -230,8 +228,8 @@ pred regraCruzamentoEntroncamento[sinal: set Cedencia, intersecao: set Interceca
 pred regraEntroncamentoSemPrioridade {
     all e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
         (~proxSegmento[s2] != none and 
-        (some s1.inter and s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True) and
-        (some s2.inter and s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) and
+        (s1.inter != none and s1.inter in Entroncamento and s1.inter.(Entroncamento <: comPrioridade) = True) and
+        (s2.inter != none and s2.inter in Entroncamento and s2.inter.(Entroncamento <: comPrioridade) = False) and
         (s1.inter.id = s2.inter.id))
         implies one prev: (~proxSegmento[s2]).subSegmentos | prev.elemento in CedenciaPassagem + CedenciaStop
 }
@@ -269,7 +267,7 @@ run {
     regraPrioridade
     regrasPerigo
     regrasCedencia
-} for 5 Estrada, 5 Segmento, 5 SubSegmento, 5 Elemento
+} for 5 Estrada, 5 Segmento, 5 SubSegmento
 
 // Encontrar modelos inválidos
 check {
