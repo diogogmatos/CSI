@@ -51,13 +51,13 @@ pred regrasBase {
     all c: Cruzamento | (#inicio.c) = (#fim.c) and #inicio.c = 2
     all e: Entroncamento | (#inicio.e = 1 and #fim.e = 2) or (#inicio.e = 2 and #fim.e = 1)
     // So pode existir no maximo um instacia de cada tipo de regra por segmento
-    all s: Segmento | 
-        (one r: s.regras | r in Prioridade) or
-        (one r: s.regras | r in VelocidadeMaxima) or
-        no s.regras
+    all s: Segmento | (lone r: s.regras | r in Prioridade) and (lone v: s.regras | v in VelocidadeMaxima)
     // Subsegmentos não devem ser partilhados entre segmentos
     all s1, s2: Segmento | s1 != s2 implies
         no s1.subSegmentos.*proxSubSegmento & s2.subSegmentos.*proxSubSegmento
+    // Sinais nao devem ser partilhados entre subsegmentos
+    all s1, s2: SubSegmento | s1 != s2 implies
+        no s1.elemento & s2.elemento
 } 
 
 // Interseções
@@ -150,10 +150,25 @@ pred regrasPerigo {
 
 // -- Regras Sinais de Cedência
 
-pred regraCedenciaOuStop {
-    all s: Segmento | s.fim in Cruzamento and (no r1: s.regras | r1 in Prioridade)
-    and (some os: fim.(s.fim) - s | one r2: os.regras | r2 in Prioridade) implies
-        one ss: s.subSegmentos | ss.elemento in CedenciaPassagem or ss.elemento in CedenciaStop
+pred regraCedenciaPassagem {
+    all s1: Segmento | 
+        s1.fim in Cruzamento + Entroncamento and
+        (some s2: Segmento | s2 != s1 and s2.fim = s1.fim and some r: s2.regras | r in Prioridade)
+    implies
+        one ss: s1.subSegmentos.*proxSubSegmento | 
+            ss.elemento in CedenciaPassagem or ss.elemento in CedenciaStop
+}
+
+pred regraCedenciaCruzamento {
+    all s: Segmento | (s.fim in Cruzamento and some r: s.regras | r in Prioridade)
+    implies
+        one ss: s.subSegmentos.*proxSubSegmento | ss.elemento in CedenciaCruzamento
+}
+
+pred regraCedenciaEntroncamento {
+    all s: Segmento | (s.fim in Entroncamento and some r: s.regras | r in Prioridade)
+    implies
+        one ss: s.subSegmentos.*proxSubSegmento | ss.elemento in CedenciaEntroncamento
 }
 
 pred regraCedenciaRotunda {
@@ -168,10 +183,15 @@ run {
     // some Perigo
     // some Obstaculo
     // some Cedencia
-    some Rotunda
+    // some Entroncamento
+    // some Prioridade
+    // some s: Segmento | s.fim in Cruzamento and some r: s.regras | r in Prioridade
     regrasBase
     regrasPerigo
     regraCedenciaRotunda
+    regraCedenciaPassagem
+    regraCedenciaCruzamento
+    regraCedenciaEntroncamento
 } for 10 Estrada, 10 Segmento, 10 SubSegmento, 10 Regra, 10 Intercecao, 10 Obstaculo, 10 Sinal, exactly 10 String
 
 // Encontrar modelos inválidos
