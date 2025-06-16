@@ -34,9 +34,30 @@ pred regrasBase {
         let nextIdx = add[idx, 1] | 
         nextIdx in e.intercecoes.inds implies
         (one s: Segmento | s.inicio = e.intercecoes[idx] and s.fim = e.intercecoes[nextIdx])
-    
+    // Não existe segmentos com sentido inverso
+    all s1, s2: Segmento | 
+        s1 != s2 implies not (s1.inicio = s2.fim and s1.fim = s2.inicio)
+    // Não existem subsegmentos soltos
+    all s: SubSegmento | 
+        s in SubSegmento.proxSubSegmento or s in Segmento.subSegmentos
+    // Não existem obstáculos soltos
+    all o: Obstaculo | o in SubSegmento.elemento
+    // Não existem sinais soltos
+    all s: Sinal | s in SubSegmento.elemento
+    // Não existem regras soltas
+    all r: Regra | r in Segmento.regras
+    // Não existem ciclos de subsegmentos
+    all s: SubSegmento | s not in s.^proxSubSegmento
     all c: Cruzamento | (#inicio.c) = (#fim.c) and #inicio.c = 2
     all e: Entroncamento | (#inicio.e = 1 and #fim.e = 2) or (#inicio.e = 2 and #fim.e = 1)
+    // So pode existir no maximo um instacia de cada tipo de regra por segmento
+    all s: Segmento | 
+        (one r: s.regras | r in Prioridade) or
+        (one r: s.regras | r in VelocidadeMaxima) or
+        no s.regras
+    // Subsegmentos não devem ser partilhados entre segmentos
+    all s1, s2: Segmento | s1 != s2 implies
+        no s1.subSegmentos.*proxSubSegmento & s2.subSegmentos.*proxSubSegmento
 } 
 
 // Interseções
@@ -114,14 +135,43 @@ sig InformacaoPassadeira extends Informacao {}
 // Regras de Trânsito
 
 // -- Regras Sinais de Perigo
+pred regraPerigo[sinal: set Perigo, obstaculo: set Obstaculo] {
+    all s: Segmento, sub: s.subSegmentos.*proxSubSegmento |
+        sub.elemento in obstaculo implies
+            one prev: *(~proxSubSegmento)[sub] | prev.elemento in sinal
+}
+
+pred regrasPerigo {
+    regraPerigo[PerigoLomba + PerigoLombaOuDepressao, Lomba] and
+    regraPerigo[PerigoDepressao + PerigoLombaOuDepressao, Depressao] and
+    regraPerigo[PerigoPassadeira, Passadeira] and
+    regraPerigo[PerigoTunel, Tunel]
+}
 
 // -- Regras Sinais de Cedência
+
+pred regraCedenciaOuStop {
+    all s: Segmento | s.fim in Cruzamento and (no r1: s.regras | r1 in Prioridade)
+    and (some os: fim.(s.fim) - s | one r2: os.regras | r2 in Prioridade) implies
+        one ss: s.subSegmentos | ss.elemento in CedenciaPassagem or ss.elemento in CedenciaStop
+}
+
+pred regraCedenciaRotunda {
+    all s: Segmento | s.fim in Rotunda implies
+        one ss: s.subSegmentos.*proxSubSegmento | ss.elemento in CedenciaRotunda
+}
 
 // Encontrar modelos válidos
 run {
     some Estrada
     some Segmento
+    // some Perigo
+    // some Obstaculo
+    // some Cedencia
+    some Rotunda
     regrasBase
+    regrasPerigo
+    regraCedenciaRotunda
 } for 10 Estrada, 10 Segmento, 10 SubSegmento, 10 Regra, 10 Intercecao, 10 Obstaculo, 10 Sinal, exactly 10 String
 
 // Encontrar modelos inválidos
