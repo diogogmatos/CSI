@@ -176,9 +176,16 @@ pred regraCedenciaRotunda {
         one ss: s.subSegmentos.*proxSubSegmento | ss.elemento in CedenciaRotunda
 }
 
+pred regrasCedencia {
+    regraCedenciaPassagem
+    regraCedenciaCruzamento
+    regraCedenciaEntroncamento
+    regraCedenciaRotunda
+}
+
 // -- Regras Sinais Proibição
 
-pred regraInformaProibicao {
+pred regraInformaProibicao[sinal1: set Proibicao, sinal2: set Proibicao] {
     all s1: Segmento | 
         s1.inicio in Cruzamento + Entroncamento and
         (some s2: Segmento | s2 != s1 and s2.fim = s1.inicio and
@@ -186,22 +193,40 @@ pred regraInformaProibicao {
         (some e: Estrada, idx1, idx2, idx3: e.intercecoes.inds
             | e.intercecoes[idx1] = s2.inicio and e.intercecoes[idx2] = s2.fim and e.intercecoes[idx3] = s1.fim) and
         // O segmento anterior (s2) tem um limite de velocidade
-        some ss: s2.subSegmentos.*proxSubSegmento | ss.elemento in ProibicaoVelocidadeMaxima)
+        some ss: s2.subSegmentos.*proxSubSegmento | ss.elemento in sinal1)
     implies
         one ss1: s1.subSegmentos.*proxSubSegmento | 
-            ss1.elemento in ProibicaoVelocidadeMaxima or ss1.elemento in ProibicaoFim or ss1.elemento in ProibicaoFimVelocidadeMaxima
+            ss1.elemento in sinal1 or ss1.elemento in ProibicaoFim or ss1.elemento in sinal2
+}
+
+pred regrasProibicao {
+    regraInformaProibicao[ProibicaoVelocidadeMaxima, ProibicaoFimVelocidadeMaxima]
+    regraInformaProibicao[ProibicaoUltrapassagem, ProibicaoFimUltrapassagem]
+    regraInformaProibicao[ProibicaoUltrapassagemMotociclos, ProibicaoFimUltrapassagemMotociclos]
+    regraInformaProibicao[ProibicaoUltrapassagemPesados, ProibicaoFimUltrapassagemPesados]
+}
+
+// -- Regras Sinais de Informação
+
+pred regraInformacao[sinal: set Informacao, obstaculo: set Obstaculo] {
+    all s: Segmento, sub: s.subSegmentos.*proxSubSegmento |
+        sub.elemento in obstaculo implies
+            one prev: ~proxSubSegmento[sub] | prev.elemento in sinal
+}
+
+pred regrasInformacao {
+    regraInformacao[InformacaoPassadeira, Passadeira]
 }
 
 // Encontrar modelos válidos
 run {
     some Estrada
+    some Passadeira
     regrasBase
     regrasPerigo
-    regraCedenciaRotunda
-    regraCedenciaPassagem
-    regraCedenciaCruzamento
-    regraCedenciaEntroncamento
-    regraInformaProibicao
+    regrasCedencia
+    regrasProibicao
+    regrasInformacao
 
     // some s: Segmento | s.fim in Cruzamento and some r: s.regras | r in Prioridade
 
