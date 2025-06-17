@@ -38,6 +38,8 @@ pred regrasBase {
     all e: Estrada, i: Intercecao | e.id != i.id
     // Uma estrada deve ter um identificador único
     all e1, e2: Estrada | e1.id = e2.id implies e1 = e2
+    // Interceções devem ter um identificador único
+    all i1, i2: Intercecao | i1.id = i2.id implies i1 = i2
     // O início da estrada deve ser um segmento único
     all e1, e2: Estrada | e1.inicio = e2.inicio implies e1 = e2
     // Estradas diferentes não têm segmentos em comum
@@ -66,15 +68,20 @@ pred regrasBase {
     //     s1.inter.id = s2.inter.id and s1.inter.(Entroncamento <: comPrioridade) = True and s2.inter.(Entroncamento <: comPrioridade) = False
     //     implies s2.proxSegmento = none and s2.subSegmentos = none
     // Entroncamentos devem ser partilhados por exatos 2 segmentos
-    all e: Entroncamento |
-        some e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
-        s1.inter in Entroncamento and s2.inter in Entroncamento and
-        s1.inter.id = s2.inter.id and
-        s1.inter.id = e.id and
-        e1 != e2 
+    // all e: Entroncamento |
+    //     some e1, e2: Estrada, s1: e1.inicio.*proxSegmento, s2: e2.inicio.*proxSegmento |
+    //     s1.inter in Entroncamento and s2.inter in Entroncamento and
+    //     s1.inter.id = s2.inter.id and
+    //     s1.inter.id = e.id and
+    //     e1 != e2 
     // all s: Segmento | s.inter in Entroncamento implies (some os: Segmento | os != s and os.inter.id = s.inter.id)
     // all i: Entroncamento | one s1, s2: Segmento |
     //     s1 != s2 and s1.inter.id = i.id and s2.inter.id = i.id
+
+    // Cruzamentos devem ser partilhados por exatamente 2 segmentos
+    // all c: Cruzamento | 
+    //     2 <= #( { s: Segmento | s.inter.id = c.id } )
+
     // Rotundas devem ser partilhadas por pelo menos dois segmentos
     all r: Rotunda |
         some s1, s2: Segmento |
@@ -244,30 +251,23 @@ pred regraCruzamentoSemPrioridade {
 }
 
 pred regrasCedencia {
-    regraCruzamentoEntroncamento[CedenciaRotunda, Rotunda] and
-    regraCruzamentoEntroncamento[CedenciaCruzamento, Cruzamento] and
-    regraCruzamentoEntroncamento[CedenciaEntroncamento, Entroncamento] and
-    regraEntroncamentoSemPrioridade and
+    regraCruzamentoEntroncamento[CedenciaRotunda, Rotunda]
+    regraCruzamentoEntroncamento[CedenciaCruzamento, Cruzamento] 
+    regraCruzamentoEntroncamento[CedenciaEntroncamento, Entroncamento] 
+    regraEntroncamentoSemPrioridade 
     regraCruzamentoSemPrioridade
 }
 
 // Encontrar modelos válidos
 run {
-    some s: String | s = "s1" or s = "s2" or s = "s3" or s = "s4" or s = "s5" or s = "s6" or s = "s7"
     some Estrada
-    // some Segmento
-    // some proxSegmento
-    // some proxSubSegmento
-    // some SubSegmento
-    // some PerigoLomba
-    // some Lomba
-    // some CedenciaStop
-    some Entroncamento
+    some Cruzamento
+    some Segmento.proxSegmento
     regrasBase
     regraPrioridade
     regrasPerigo
     regrasCedencia
-} for 5 Estrada, 5 Segmento, 5 SubSegmento
+} for 5 Estrada, 5 Segmento, 5 SubSegmento, 5 Intercecao, 5 Obstaculo, 5 Sinal, exactly 5 String
 
 // Encontrar modelos inválidos
 check {
