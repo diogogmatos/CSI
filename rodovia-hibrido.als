@@ -225,11 +225,16 @@ pred regraCruzamentoEntroncamento[sinal: set Cedencia, intersecao: set Interceca
     // Antes de uma interseção com uma via sem prioridade deve existir uma sinalização de cedência
     all e: Estrada, s: e.inicio.*proxSegmento |
         (~proxSegmento[s] != none and s.inter != none and s.inter in intersecao and 
-            (s.inter in Rotunda or
-             (s.inter in Cruzamento and s.inter.(Cruzamento <: comPrioridade) = True) or 
+            ((s.inter in Cruzamento and s.inter.(Cruzamento <: comPrioridade) = True) or 
              (s.inter in Entroncamento and s.inter.(Entroncamento <: comPrioridade) = True)))
         implies
             one prev: (~proxSegmento[s]).subSegmentos | prev.elemento in sinal
+}
+
+pred regraRotunda {
+    // Antes de uma rotunda deve existir uma sinalização de cedência
+    all e: Estrada, s: e.inicio.*proxSegmento |
+        s.inter in Rotunda implies one prev: (~proxSegmento[s]).subSegmentos | prev.elemento in CedenciaRotunda
 }
 
 pred regraEntroncamentoSemPrioridade {
@@ -251,7 +256,7 @@ pred regraCruzamentoSemPrioridade {
 }
 
 pred regrasCedencia {
-    regraCruzamentoEntroncamento[CedenciaRotunda, Rotunda]
+    regraRotunda
     regraCruzamentoEntroncamento[CedenciaCruzamento, Cruzamento] 
     regraCruzamentoEntroncamento[CedenciaEntroncamento, Entroncamento] 
     regraEntroncamentoSemPrioridade 
@@ -267,7 +272,8 @@ run {
     regraPrioridade
     regrasPerigo
     regrasCedencia
-} for 5 Estrada, 5 Segmento, 5 SubSegmento, 5 Intercecao, 5 Obstaculo, 5 Sinal, exactly 5 String
+    some Rotunda
+} for 10 Estrada, 10 Segmento, 10 SubSegmento, 10 Intercecao, 10 Obstaculo, 10 Sinal,exactly 10 String
 
 // Encontrar modelos inválidos
 check {

@@ -57,7 +57,13 @@ pred regrasBase {
     // Sinais nao devem ser partilhados entre subsegmentos
     all s1, s2: SubSegmento | s1 != s2 implies
         no s1.elemento & s2.elemento
-} 
+    // If a segment exists, then a estrada must exist containing the intersections of that segment, in order
+    all s: Segmento |
+        one e: Estrada, idx1, idx2 : e.intercecoes.inds |
+            e.intercecoes[idx1] = s.inicio and e.intercecoes[idx2] = s.fim and
+            idx2 = add[idx1, 1]
+}
+
 
 // Interseções
 
@@ -130,6 +136,7 @@ sig ObrigacaoRotunda extends Obrigacao {}
 abstract sig Informacao extends Sinal {}
 
 sig InformacaoPassadeira extends Informacao {}
+sig InformacaoTunel extends Informacao {}
 
 // Regras de Trânsito
 
@@ -216,18 +223,18 @@ pred regraInformacao[sinal: set Informacao, obstaculo: set Obstaculo] {
 
 pred regrasInformacao {
     regraInformacao[InformacaoPassadeira, Passadeira]
+    regraInformacao[InformacaoTunel, Tunel]
 }
 
 // Encontrar modelos válidos
 run {
     some Estrada
-    some Passadeira
     regrasBase
     regrasPerigo
     regrasCedencia
     regrasProibicao
     regrasInformacao
-
+    all e: Estrada | #e.intercecoes > 2 
     // some s: Segmento | s.fim in Cruzamento and some r: s.regras | r in Prioridade
 
     // Novo predicado: existe um segmento que começa nos índices 0 e 1 de uma estrada e tem um sinal de ProibicaoVelocidadeMaxima
