@@ -228,21 +228,19 @@ pred regrasInformacao {
 
 // Encontrar modelos válidos
 run {
-    some Estrada
     regrasBase
     regrasPerigo
     regrasCedencia
     regrasProibicao
     regrasInformacao
-    all e: Estrada | #e.intercecoes > 2 
-    // some s: Segmento | s.fim in Cruzamento and some r: s.regras | r in Prioridade
+    some s: Segmento | s.fim in Cruzamento and some r: s.regras | r in Prioridade
 
     // Novo predicado: existe um segmento que começa nos índices 0 e 1 de uma estrada e tem um sinal de ProibicaoVelocidadeMaxima
-    // some e: Estrada | 
-    //     let i0 = e.intercecoes[0], i1 = e.intercecoes[1] |
-    //         some s: Segmento | 
-    //             s.inicio = i0 and s.fim = i1 and 
-    //             some ss: s.subSegmentos.*proxSubSegmento | ss.elemento in ProibicaoVelocidadeMaxima
+    some e: Estrada | 
+        let i0 = e.intercecoes[0], i1 = e.intercecoes[1] |
+            some s: Segmento | 
+                s.inicio = i0 and s.fim = i1 and 
+                some ss: s.subSegmentos.*proxSubSegmento | ss.elemento in ProibicaoVelocidadeMaxima
 } for 10 Estrada, 10 Segmento, 10 SubSegmento, 10 Regra, 10 Intercecao, 10 Obstaculo, 10 Sinal, exactly 10 String
 
 // Encontrar modelos inválidos
@@ -252,3 +250,19 @@ run {
     some Estrada
     #Rotunda = 0
 } for 10 Estrada, 10 Segmento, 10 SubSegmento, 10 Regra, 10 Intercecao, 10 Obstaculo, 10 Sinal, exactly 10 String
+
+run {
+    regrasBase
+    regrasPerigo
+    regrasCedencia
+    regrasProibicao
+    regrasInformacao
+    some Estrada
+    one e: Estrada | 
+        #e.intercecoes >= 5 and
+        e.intercecoes[0] in Rotunda and 
+        e.intercecoes[1] in Rotunda and 
+        e.intercecoes[2] in Entroncamento and 
+        e.intercecoes[3] in Rotunda and 
+        e.intercecoes[4] in Rotunda
+} for 10 Estrada, 30 Segmento, 30 SubSegmento, 2 Regra, 10 Obstaculo, 30 Sinal, 30 Intercecao, exactly 30 String

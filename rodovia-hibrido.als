@@ -83,9 +83,9 @@ pred regrasBase {
     //     2 <= #( { s: Segmento | s.inter.id = c.id } )
 
     // Rotundas devem ser partilhadas por pelo menos dois segmentos
-    all r: Rotunda |
-        some s1, s2: Segmento |
-        s1 != s2 and s1.inter.id = r.id and s2.inter.id = r.id
+    // all r: Rotunda |
+    //     some s1, s2: Segmento |
+    //     s1 != s2 and s1.inter.id = r.id and s2.inter.id = r.id
 }
 
 // estrada1: S1 -> S2 -> S3 -> ... -> Sn
@@ -266,7 +266,6 @@ pred regrasCedencia {
 // Encontrar modelos válidos
 run {
     some Estrada
-    some Cruzamento
     some Segmento.proxSegmento
     regrasBase
     regraPrioridade
